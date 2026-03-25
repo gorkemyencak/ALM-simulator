@@ -17,12 +17,14 @@ class HullWhite:
             self,
             a: float,
             sigma: float,
-            initial_rate: float
+            initial_rate: float,
+            theta: float
     ):
         
         self.a = a
         self.sigma = sigma
         self.r0 = initial_rate
+        self.theta = theta
 
     
     def simulate_paths(
@@ -32,14 +34,14 @@ class HullWhite:
             dt: float            
     ):
         
-        """ Simulating short-rate paths using HW model parameters (we assume θ(t) ≈ 0 for simplicity)"""
+        """ Simulating short-rate paths using HW model parameters """
         rates = np.zeros((n_paths, n_steps))
         rates[:, 0] = self.r0
 
         for t in range(1, n_steps):
             z = np.random.normal(size = n_paths)
             dr = (
-                0 - self.a * rates[:, t-1] * dt
+                self.a * (self.theta - rates[:, t-1]) * dt
                 + self.sigma * np.sqrt(dt) * z
             )
 

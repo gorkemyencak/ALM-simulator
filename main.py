@@ -1,3 +1,5 @@
+import numpy as np
+
 from src.data_loader.fred_loader import FredDataLoader
 from src.data_loader.market_data import save_raw_data, save_processed_data
 from src.data_loader.data_cleaning import clean_yield_curve
@@ -69,18 +71,20 @@ def main():
 
     ### --- INT RATE SIMULATION MODEL ---
     r0 = GetRates().get_short_rate(curve)
+    theta = np.mean(list(curve.values()))
 
     int_rate_model = HullWhite(
         a = 0.1,            # mean-reversion
         sigma = 0.01,       # volatility
-        initial_rate = r0
+        initial_rate = r0,
+        theta = theta
     )
 
     # generating simulated interest rate paths
     int_rate_paths = int_rate_model.simulate_paths(
         n_paths = 1000,
         n_steps = 60,
-        dt = 1.0
+        dt = 1.0 # yearly
     )
 
     print(f"Simulated rates shape: {int_rate_paths.shape}")
