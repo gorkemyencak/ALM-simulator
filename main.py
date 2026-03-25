@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from src.data_loader.fred_loader import FredDataLoader
 from src.data_loader.market_data import save_raw_data, save_processed_data
@@ -14,6 +15,8 @@ from src.liabilities.deposit_model import DepositModel
 from src.liabilities.cashflow_generator import present_value
 
 from src.rates.hull_white import HullWhite
+
+from src.risk.monte_carlo import MonteCarlo
 
 FRED_API_KEY = "41504b53ebf306bcd89ceb69bbd6eba8"
 
@@ -89,6 +92,22 @@ def main():
 
     print(f"Simulated rates shape: {int_rate_paths.shape}")
     print(f"First 5 steps in the first simulated path: {int_rate_paths[0, :5 ]}")
+
+    # --- MONTE CARLO ---
+    alm_mc = MonteCarlo(
+        portfolio = bond_portfolio,
+        deposit_model = deposit_model,
+        pricing_function = price_bond,
+        liability_pv_function = present_value
+    )
+
+    results = alm_mc.run_simulation(
+        rate_paths = int_rate_paths,
+        dt = 1.0 # yearly
+    )
+
+    df_results = pd.DataFrame(results)
+    print(df_results.head())
 
 
 if __name__ == "__main__":
