@@ -1,11 +1,5 @@
 import numpy as np
 
-def discount_factor(
-        rate: float, 
-        t: int
-):
-    return 1 / (1+rate)**t
-
 def rate_for_maturity(
         curve: dict,
         maturity: int
@@ -16,19 +10,16 @@ def rate_for_maturity(
 
     return curve[closest_tenor]
 
-def price_bond(
-        bond,
-        yield_curve: dict
+
+def present_value(
+        cashflows, 
+        yield_curve
 ):
-    """ Price bond using simple yield curve """
-
-    cashflows = bond.generate_cashflow()
-    pv = 0
-
-    for t, cf in enumerate(cashflows, start = 1):
-        rate = rate_for_maturity(yield_curve, t)
-        pv += cf * discount_factor(rate, t)
-
-    return pv
-
+    """ Present value of a given cashflow using simple yield curve """
     
+    pv = 0
+    for t, cf in enumerate(cashflows, start=1):
+        rate = rate_for_maturity(yield_curve, t)
+        pv += cf / (1 + rate)**t
+    
+    return pv
