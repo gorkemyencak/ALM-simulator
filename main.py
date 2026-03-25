@@ -11,6 +11,8 @@ from src.assets.pricing import price_bond
 from src.liabilities.deposit_model import DepositModel
 from src.liabilities.cashflow_generator import present_value
 
+from src.rates.hull_white import HullWhite
+
 FRED_API_KEY = "41504b53ebf306bcd89ceb69bbd6eba8"
 
 def main():
@@ -64,6 +66,25 @@ def main():
     print(f"Assets Value: {asset_value:.2f}")
     print(f"Liabilities Value: {liability_value:.2f}")
     print(f"Equity Gap: {(asset_value - liability_value):.2f}")
+
+    ### --- INT RATE SIMULATION MODEL ---
+    r0 = GetRates().get_short_rate(curve)
+
+    int_rate_model = HullWhite(
+        a = 0.1,            # mean-reversion
+        sigma = 0.01,       # volatility
+        initial_rate = r0
+    )
+
+    # generating simulated interest rate paths
+    int_rate_paths = int_rate_model.simulate_paths(
+        n_paths = 1000,
+        n_steps = 60,
+        dt = 1.0
+    )
+
+    print(f"Simulated rates shape: {int_rate_paths.shape}")
+    print(f"First 5 steps in the first simulated path: {int_rate_paths[0, :5 ]}")
 
 
 if __name__ == "__main__":
