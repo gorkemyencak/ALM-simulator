@@ -1,6 +1,7 @@
 from src.data_loader.fred_loader import FredDataLoader
 from src.data_loader.market_data import save_raw_data, save_processed_data
 from src.data_loader.data_cleaning import clean_yield_curve
+from src.utils.rate_utils import GetRates
 
 FRED_API_KEY = "41504b53ebf306bcd89ceb69bbd6eba8"
 
@@ -22,6 +23,10 @@ def main():
     save_processed_data(yield_curve_clean, 'cleaned_yield_curve_fred.csv')
 
     print(yield_curve_clean.head())
+
+    # latest yield curve
+    curve = GetRates().get_latest_curve(yield_curve_clean)
+    print(f"Latest yield curve: {curve}")
 
 
 if __name__ == "__main__":
