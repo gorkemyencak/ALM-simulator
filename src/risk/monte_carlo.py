@@ -1,5 +1,7 @@
 import numpy as np
 
+from src.risk.duration_gap import portfolio_duration, liability_duration, duration_gap
+
 class MonteCarlo:
 
     def __init__(
@@ -58,6 +60,23 @@ class MonteCarlo:
                 yield_curve = curve
             )
 
+            # -- DURATIONS --
+            duration_asset = portfolio_duration(
+                portfolio = self.portfolio,
+                yield_curve = curve,
+                pricing_function = self.pricing_function
+            )
+
+            duration_liability = liability_duration(
+                cashflows = cashflows,
+                yield_curve = curve
+            )
+
+            gap = duration_gap(
+                asset_duration = duration_asset,
+                liability_duration = duration_liability
+            )
+
             # -- METRICS --
             equity = asset_value - liability_value
             funding_ratio = asset_value / liability_value if liability_value != 0 else np.nan
@@ -66,7 +85,10 @@ class MonteCarlo:
                 'assets': asset_value,
                 'liabilities': liability_value,
                 'equity': equity,
-                'funding_ratio': funding_ratio
+                'funding_ratio': funding_ratio,
+                'asset_duration': duration_asset,
+                'liability_duration': duration_liability,
+                'duration_gap': gap
             })
             
         return results
