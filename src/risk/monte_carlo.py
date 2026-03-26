@@ -2,6 +2,8 @@ import numpy as np
 
 from src.risk.duration_gap import portfolio_duration, liability_duration, duration_gap
 
+from src.curve_model.factor_simulator import generate_yield_curve_scenarios
+
 class MonteCarlo:
 
     def __init__(
@@ -92,5 +94,86 @@ class MonteCarlo:
             })
             
         return results
+    
+
+    def run_simulation_pca(
+            self,
+            assets,
+            liabilities,
+            pca_factors,
+            eigenvectors,
+            mean_curve,
+            maturities,
+            n_sims = 1000,
+            n_steps = 120 # valuation horizon (10Y)           
+    ):
+        """ ALM Monte Carlo using PCA yield curve scenarios """
+        # 1. Generate yield curve scenarios
+        yield_curve, discount_factors = generate_yield_curve_scenarios(
+            pca_factors = pca_factors,
+            eigenvectors = eigenvectors,
+            mean_curve = mean_curve,
+            maturities = maturities,
+            n_steps = n_steps,
+            n_sims = n_sims
+        )
+
+        # use last time step for valuation horizon (10Y)
+        dfs_T = discount_factors[:, -1, :] # disc_fact shape -> [n_sims, n_steps, n_maturities]
+
+        # 2. Value assets under scenarios
+        asset_values = []
+
+        for sim in range(n_sims):
+            df_curve = dfs_T[sim]
+
+            pv_assets = 0.0
+            for asset in assets:
+                maturity_idx = np.argmin(
+                    np.abs(np.array(maturities) - asset['maturity'])
+                )
+
+                df = df_curve[maturity_idx]
+                pv_assets += asset['notional'] * df
+            
+            asset_values.append(pv_assets)
+        
+        asset_values = np.array(asset_values)
+
+        # 3. Value liabilities under scenarios
+        liability_values = []
+
+        for sim in range(n_sims):
+            df_curve = dfs_T[sim]
+
+            pv_liabilities = 0.0
+            for liability in liabilities:
+                maturity_idx = np.argmin(
+                    np.abs(np.array(maturities) - liability['maturity'])
+                )
+
+                df = df_curve[maturity_idx]
+                pv_liabilities += liability['notional'] * df
+            
+            liability_values.append(pv_liabilities)
+        
+        liability_values = np.array(liability_values)
+
+        # 4. Compute ALM Metrics
+        equity = asset_values - liability_values
+        funding_ratio = asset_values / liability_values
+        underfunding_probability = np.mean(funding_ratio < 1)
+
+        results = {
+            'asset_values': asset_values,
+            'liability_values': liability_values,
+            'equity': equity,
+            'funding_ratio': funding_ratio,
+            'underfunding_probability': underfunding_probability
+        }
+
+        return results
+
+        
 
 
