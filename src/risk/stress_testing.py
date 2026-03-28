@@ -1,103 +1,100 @@
+import numpy as np 
 
 class StressTesting:
+    """ Interest rate stress testing engine, works with PCA ALM simulator outputs """
 
     def __init__(
             self,
-            curve
+            maturities
     ):
         
-        self.curve = curve
+        self.maturities = np.asarray(maturities, dtype = float)
     
 
     def shock_parallel_up(
             self,
+            curve,
             shock = 0.02
     ):
-        
-        return {m: r + shock for m, r in self.curve.items()}
+
+        return [r + shock for r in curve]
     
 
     def shock_parallel_down(
             self,
+            curve,
             shock = 0.02
     ):
         
-        return {m: r - shock for m, r in self.curve.items()}
+        return [r - shock for r in curve]
+    
     
     def shock_steepener(
             self,
-            short_shock = 0.005,
-            long_shock = 0.02
+            curve,
+            shock_bps = 0.02
     ):
-        
-        shocked_curve = {}
+        """ Long rates up, Short rates down """
+        slope = (self.maturities - self.maturities.min()) / (self.maturities.max() - self.maturities.min()) # ranges between 0 and 1
 
-        for m, r in self.curve.items():
-
-            if m <= 2:
-                shocked_curve[m] = r + short_shock
-            elif m >= 10:
-                shocked_curve[m] = r + long_shock
-            else:
-                shocked_curve[m] = r + (short_shock + long_shock) / 2
-        
-        return shocked_curve
+        # - short on short end, +shock on long end
+        shock_vector = (slope - 0.5) * 2 * shock_bps
+         
+        return curve + shock_vector
     
 
     def shock_flattener(
             self,
-            short_shock = 0.02,
-            long_shock = 0.005
+            curve,
+            shock_bps = 0.02
     ):
-        
-        shocked_curve = {}
+                
+        return self.shock_steepener(curve = curve, shock_bps = -shock_bps)
+    
 
-        for m, r in self.curve.items():
+    def discount_factors(self, curve):
+        """ Converts zero-curve into discount factors """
+        curve = np.asarray(curve, dtype = float)
+        return np.exp(-curve * self.maturities)
+    
 
-            if m <= 2:
-                shocked_curve[m] = r + short_shock
-            elif m >= 10:
-                shocked_curve[m] = r + long_shock
-            else:
-                shocked_curve[m] = r + (short_shock + long_shock) / 2
+    def pv_cashflows(self, cashflows, disc_fact):
+
+        pv = 0.0
+        for item in cashflows:
+            idx = np.argmin(np.abs(self.maturities - item['maturity']))
+            pv += item['notional'] * disc_fact[idx]
         
-        return shocked_curve
+        return pv
 
 
     def run_stress_test(
             self,
-            portfolio,
-            deposit_model,
-            pricing_function,
-            liability_pv_function
+            base_curve,
+            assets,
+            liabilities
     ):
         
         scenarios = {
-            'Base': self.curve,
-            'Parallel Up +200bps': self.shock_parallel_up(),
-            'Parallel Down -200bps': self.shock_parallel_down(),
-            'Steepener': self.shock_steepener(),
-            'Flattener': self.shock_flattener()
+            'Base': lambda c: c,
+            'Parallel Up +200bps': self.shock_parallel_up,
+            'Parallel Down -200bps': self.shock_parallel_down,
+            'Steepener': self.shock_steepener,
+            'Flattener': self.shock_flattener
         }
 
         results = []
 
-        for name, shocked_curve in scenarios.items():
+        for name, shock_fn in scenarios.items():
+
+            shocked_curve = np.asarray(shock_fn(np.asarray(base_curve).copy()), dtype=float)
+            dfs = self.discount_factors(curve = shocked_curve)
 
             # Assets
-            asset_value = portfolio.total_value(
-                yield_curve = shocked_curve,
-                pricing_function = pricing_function
-            )
+            asset_value = self.pv_cashflows(cashflows = assets, disc_fact = dfs)
 
             # Liabilities
-            cashflows = deposit_model.generate_cashflows(
-                years = 10
-            )
-            liability_value = liability_pv_function(
-                cashflows = cashflows,
-                yield_curve = shocked_curve
-            )
+            liability_value = self.pv_cashflows(cashflows = liabilities, disc_fact = dfs)
 
             equity = asset_value - liability_value
             funding_ratio = asset_value / liability_value
@@ -107,7 +104,8 @@ class StressTesting:
                 'assets': asset_value,
                 'liabilities': liability_value,
                 'equity': equity,
-                'funding_ratio': funding_ratio
+                'funding_ratio': funding_ratio,
+                'curve': shocked_curve
             })
         
         return results

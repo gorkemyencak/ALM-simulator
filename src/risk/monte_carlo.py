@@ -169,7 +169,10 @@ class MonteCarlo:
             'liability_values': liability_values,
             'equity': equity,
             'funding_ratio': funding_ratio,
-            'underfunding_probability': underfunding_probability
+            'underfunding_probability': underfunding_probability,
+            'yield_curves': yield_curve,
+            'discount_factors': discount_factors,
+            'maturities': maturities
         }
 
         return results
